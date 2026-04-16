@@ -312,6 +312,65 @@ local function normalize_cwd(uri)
   return s
 end
 
+local function shell_quote_single(s)
+  return "'" .. tostring(s):gsub("'", "'\\''") .. "'"
+end
+
+local function to_wsl_cwd(path_str)
+  if not path_str or path_str == '' then return '/home/lenovo' end
+  local p = tostring(path_str):gsub('\\', '/')
+  local drv, rest = p:match('^([A-Za-z]):/(.*)$')
+  if drv and rest then
+    return '/mnt/' .. drv:lower() .. '/' .. rest
+  end
+  return p
+end
+
+local function split_with_current_context(window, pane, direction)
+  local cwd = '/home/lenovo'
+  local pane_domain = 'local'
+  pcall(function()
+    local dn = pane:get_domain_name()
+    if dn and dn ~= '' then
+      pane_domain = dn
+    end
+  end)
+  pcall(function()
+    local uri = pane:get_current_working_dir()
+    local resolved = normalize_cwd(uri)
+    if resolved and resolved ~= '' then
+      cwd = resolved
+    end
+  end)
+  local split_direction = direction
+  if direction == 'Down' then
+    split_direction = 'Bottom'
+  elseif direction == 'Up' then
+    split_direction = 'Top'
+  end
+
+  local split_domain = 'CurrentPaneDomain'
+  local split_cwd = cwd
+  local split_args = nil
+
+  if domain_label(pane_domain, cwd) == 'WSL' then
+    -- 当前环境里 WSL pane 的 cwd 回报并不稳定，分屏时会错误回落到 Windows 路径；
+    -- 这里优先保证新分屏稳定进入 WSL home，而不是继续继承一个不可信的 cwd。
+    split_cwd = '/home/lenovo'
+    split_args = { 'bash', '-lc', 'cd /home/lenovo && exec bash -l' }
+  else
+    split_cwd = cwd
+    split_args = nil
+  end
+
+  pane:split {
+    direction = split_direction,
+    domain = split_domain,
+    cwd = split_cwd,
+    args = split_args,
+  }
+end
+
 local last_window_scheme = {}
 
 local function refresh_git_branch(cwd_str, force)
@@ -457,8 +516,12 @@ end)
 -- ── 快捷键 ──
 config.keys = {
   -- 分屏
-  { key = 'l', mods = 'CTRL|SHIFT', action = act.SplitPane({ direction = 'Right', command = { domain = 'CurrentPaneDomain' } }) },
-  { key = 'Enter', mods = 'CTRL|SHIFT', action = act.SplitPane({ direction = 'Down', command = { domain = 'CurrentPaneDomain' } }) },
+  { key = 'l', mods = 'CTRL|SHIFT', action = wezterm.action_callback(function(window, pane)
+    split_with_current_context(window, pane, 'Right')
+  end) },
+  { key = 'Enter', mods = 'CTRL|SHIFT', action = wezterm.action_callback(function(window, pane)
+    split_with_current_context(window, pane, 'Down')
+  end) },
   { key = 'w', mods = 'CTRL|SHIFT', action = act.CloseCurrentPane({ confirm = false }) },
   { key = 'LeftArrow', mods = 'CTRL|SHIFT', action = act.ActivatePaneDirection('Left') },
   { key = 'RightArrow', mods = 'CTRL|SHIFT', action = act.ActivatePaneDirection('Right') },
@@ -616,26 +679,26 @@ local function make_context_menu()
   return act.InputSelector {
     title = '右键菜单｜松手后用 ↑↓ 选择，Enter 确定，Esc 或选「退出」关闭（无需长按鼠标）',
     choices = {
-      { id = 'split_r', label = '左右分屏' },
-      { id = 'split_d', label = '上下分屏' },
-      { id = 'close_p', label = '关闭当前窗格' },
-      { id = 'fullscreen', label = '切换全屏' },
+      { id = 'split_r', label = '左右分屏  [Ctrl+Shift+L]' },
+      { id = 'split_d', label = '上下分屏  [Ctrl+Shift+Enter]' },
+      { id = 'close_p', label = '关闭当前窗格  [Ctrl+Shift+W]' },
+      { id = 'fullscreen', label = '切换全屏  [Alt+Enter]' },
       { id = 'close_win', label = '关闭当前窗口' },
-      { id = 'new_t', label = '新建标签' },
-      { id = 'ws_switch', label = '切换或创建工作区…' },
-      { id = 'ws_save', label = '保存当前布局' },
-      { id = 'ws_list', label = '列出所有工作区' },
-      { id = 'ws_detach', label = '保存布局并关闭本窗口' },
-      { id = 'new_win', label = '新建独立窗口' },
+      { id = 'new_t', label = '新建标签  [Ctrl+Shift+T]' },
+      { id = 'ws_switch', label = '切换或创建工作区…  [Ctrl+Shift+F9]' },
+      { id = 'ws_save', label = '保存当前布局  [Ctrl+Shift+Alt+S]' },
+      { id = 'ws_list', label = '列出所有工作区  [Ctrl+Shift+M]' },
+      { id = 'ws_detach', label = '保存布局并关闭本窗口  [Ctrl+Shift+D]' },
+      { id = 'new_win', label = '新建独立窗口  [Ctrl+Shift+Alt+N]' },
       { id = 'cancel', label = '── 退出菜单（不执行任何操作）──' },
     },
     action = wezterm.action_callback(function(window, pane, id)
       if id == 'cancel' then
         return
       elseif id == 'split_r' then
-        window:perform_action(act.SplitPane { direction = 'Right', command = { domain = 'CurrentPaneDomain' } }, pane)
+        split_with_current_context(window, pane, 'Right')
       elseif id == 'split_d' then
-        window:perform_action(act.SplitPane { direction = 'Down', command = { domain = 'CurrentPaneDomain' } }, pane)
+        split_with_current_context(window, pane, 'Down')
       elseif id == 'close_p' then
         window:perform_action(act.CloseCurrentPane { confirm = false }, pane)
       elseif id == 'fullscreen' then
