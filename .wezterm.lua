@@ -457,8 +457,8 @@ end)
 -- ── 快捷键 ──
 config.keys = {
   -- 分屏
-  { key = 'l', mods = 'CTRL|SHIFT', action = act.SplitPane({ direction = 'Right' }) },
-  { key = 'Enter', mods = 'CTRL|SHIFT', action = act.SplitPane({ direction = 'Down' }) },
+  { key = 'l', mods = 'CTRL|SHIFT', action = act.SplitPane({ direction = 'Right', command = { domain = 'CurrentPaneDomain' } }) },
+  { key = 'Enter', mods = 'CTRL|SHIFT', action = act.SplitPane({ direction = 'Down', command = { domain = 'CurrentPaneDomain' } }) },
   { key = 'w', mods = 'CTRL|SHIFT', action = act.CloseCurrentPane({ confirm = false }) },
   { key = 'LeftArrow', mods = 'CTRL|SHIFT', action = act.ActivatePaneDirection('Left') },
   { key = 'RightArrow', mods = 'CTRL|SHIFT', action = act.ActivatePaneDirection('Right') },
@@ -633,9 +633,9 @@ local function make_context_menu()
       if id == 'cancel' then
         return
       elseif id == 'split_r' then
-        window:perform_action(act.SplitPane { direction = 'Right' }, pane)
+        window:perform_action(act.SplitPane { direction = 'Right', command = { domain = 'CurrentPaneDomain' } }, pane)
       elseif id == 'split_d' then
-        window:perform_action(act.SplitPane { direction = 'Down' }, pane)
+        window:perform_action(act.SplitPane { direction = 'Down', command = { domain = 'CurrentPaneDomain' } }, pane)
       elseif id == 'close_p' then
         window:perform_action(act.CloseCurrentPane { confirm = false }, pane)
       elseif id == 'fullscreen' then

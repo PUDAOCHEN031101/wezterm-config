@@ -22,6 +22,7 @@
 | **多 WSL 发行版** | 可扩展 | 可同时开 Ubuntu、Debian、Arch 不同标签 |
 | **Windows ↔ WSL 路径互通** | ✅ 已测试 | 从资源管理器拖文件进终端，路径自动转换 |
 | **WSL 里的 GUI 应用** | ✅ 已测试 | 在 WSL 里跑 `code .` 会自动连 Windows 的 VS Code |
+| **分屏继承当前域** | ✅ 已配置 | 新分屏显式使用 `CurrentPaneDomain`，避免新 pane 掉回 `/mnt/c/Users/lenovo` |
 
 ---
 
