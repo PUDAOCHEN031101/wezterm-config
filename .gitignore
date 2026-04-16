@@ -1,0 +1,12 @@
+.vscode/
+*.exe
+*.dll
+*.dat
+mesa/
+windows/
+wezterm-src/
+unins000.*
+OpenConsole.exe
+strip-ansi-escapes.exe
+install-rust-cn.ps1
+setup-rust-cn.ps1
