@@ -3,7 +3,9 @@
 -- 核心：分屏 + 标签 + 工作区 + WSL + 右键菜单 + 布局保存恢复 + 快速跳转 + 多路复用
 --
 -- 若调试/编辑本文件时「错误弹窗叠很多层、不自动关」：多半是自动重载 + 配置语法错误。
--- 已关闭自动重载；改完配置后请 Ctrl+Shift+R 或重启 WezTerm。勿再使用 visual_bell = 'EaseInOut' 字符串（会整份配置报错）。
+-- 已关闭自动重载；改完配置后按 Ctrl+Shift+R（已显式绑定 ReloadConfiguration）或重启 WezTerm。
+-- 实际生效的配置文件是 %USERPROFILE%\.wezterm.lua；若你在仓库里改 e:\WezTerm\.wezterm.lua，请同步到用户目录。
+-- 勿再使用 visual_bell = 'EaseInOut' 字符串（会整份配置报错）。
 -- CONFIG_REV=20260415 已移除无效项：visual_bell 字符串、colors.scrollbar_track（若报错仍提这两项=读到旧文件或未重启）
 
 local WSL_DISTRO = 'Ubuntu'
@@ -132,8 +134,10 @@ config.color_schemes = {
   [DEFAULT_SCHEME] = {
     foreground = '#f8f8f2',
     background = '#282a36',
-    cursor_bg = '#f8f8f2',
-    cursor_fg = '#282a36',
+    -- 块光标盖住整格：字形必须用深色，否则易与浅色前景叠成「看不见」
+    cursor_bg = '#ff79c6',
+    cursor_fg = '#000000',
+    cursor_border = '#ff79c6',
     selection_fg = '#f8f8f2',
     selection_bg = '#44475a',
     ansi = {
@@ -163,12 +167,14 @@ config.color_schemes = {
       inactive_tab_hover = { bg_color = '#343746', fg_color = '#bd93f9' },
       new_tab = { bg_color = '#21222c', fg_color = '#6272a4' },
     },
+    compose_cursor = '#ffb86c',
   },
   ['Dracula-Warn'] = {
     foreground = '#f8f8f2',
     background = '#2d2228',
-    cursor_bg = '#ff5555',
-    cursor_fg = '#1e1f29',
+    cursor_bg = '#ffb86c',
+    cursor_fg = '#000000',
+    cursor_border = '#ffb86c',
     selection_fg = '#f8f8f2',
     selection_bg = '#4a3038',
     ansi = {
@@ -184,12 +190,14 @@ config.color_schemes = {
       inactive_tab_hover = { bg_color = '#3a2830', fg_color = '#f8f8f2' },
       new_tab = { bg_color = '#221820', fg_color = '#806870' },
     },
+    compose_cursor = '#f1fa8c',
   },
   ['Dracula-Staging'] = {
     foreground = '#f8f8f2',
     background = '#252a38',
-    cursor_bg = '#f1fa8c',
-    cursor_fg = '#1e1f29',
+    cursor_bg = '#8be9fd',
+    cursor_fg = '#000000',
+    cursor_border = '#8be9fd',
     selection_fg = '#f8f8f2',
     selection_bg = '#3d4a62',
     ansi = {
@@ -205,6 +213,7 @@ config.color_schemes = {
       inactive_tab_hover = { bg_color = '#2f3548', fg_color = '#f8f8f2' },
       new_tab = { bg_color = '#1a1e28', fg_color = '#6272a4' },
     },
+    compose_cursor = '#ff79c6',
   },
 }
 config.color_scheme = DEFAULT_SCHEME
@@ -216,11 +225,16 @@ config.font = wezterm.font({ family = 'JetBrains Mono', harfbuzz_features = { 'c
 config.font_size = 14.0
 config.window_background_opacity = 0.93
 config.win32_system_backdrop = 'Acrylic'
-config.default_cursor_style = 'BlinkingBar'
-config.cursor_thickness = 2
+config.default_cursor_style = 'BlinkingBlock'
+config.cursor_thickness = 3
+-- 注意：text_min_contrast_ratio 仅在较新 WezTerm 中可用；旧版会整份配置报错，故不启用。
 -- 不显式设 visual_bell：避免旧版/类型差异导致 Config 报错弹窗；需要时再按文档用「表」配置（勿写字符串）
+-- 分屏：强反差 — 非活动窗格大幅压暗、去饱和（活动窗格保持配色原样）
+config.inactive_pane_hsb = { hue = 1.0, saturation = 0.28, brightness = 0.38 }
 config.colors = {
   scrollbar_thumb = '#6272a4',
+  -- 分割线用高亮黄，与深底形成强对比（易扫视分屏边界）
+  split = '#f1fa8c',
 }
 config.enable_scroll_bar = true
 
@@ -515,6 +529,8 @@ end)
 
 -- ── 快捷键 ──
 config.keys = {
+  -- 手动重载配置（automatically_reload_config=false 时依赖此项；读的是当前 WezTerm 加载的那份 .wezterm.lua）
+  { key = 'r', mods = 'CTRL|SHIFT', action = act.ReloadConfiguration },
   -- 分屏
   { key = 'l', mods = 'CTRL|SHIFT', action = wezterm.action_callback(function(window, pane)
     split_with_current_context(window, pane, 'Right')
