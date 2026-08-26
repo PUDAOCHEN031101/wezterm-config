@@ -5,7 +5,7 @@
 ## 当前体验
 
 - 默认进入 `WSL:Ubuntu`，起始目录固定为 `/home/lenovo`。
-- 使用 Dracula-ROS 深灰配色；进入包含 `production` / `prod` 或 `staging` 的路径时自动切换强调色。
+- 使用 Dracula-ROS 深灰配色；进入 `/prod/` 路径片段，或路径中包含 `production` / `staging` 时自动切换强调色。
 - 使用软件渲染、1 FPS 动画、全不透明背景并禁用 Windows Acrylic，减少宿主进程抖动。
 - 使用 4 px 稳定竖线光标；非活动窗格明显压暗，黄色分割线强化当前窗格识别。
 - 支持标签、上下/左右分屏、工作区切换、右键动作菜单和常用目录跳转。
@@ -32,12 +32,13 @@
 
 ## 已知边界
 
-- 工作区文件 `~/.wezterm_workspaces.json` 会记录标签和窗格元数据，但当前恢复逻辑只使用第一个标签、第一个窗格的工作目录；不会重建完整分屏、标签、进程或比例。
+- Windows 用户目录下的 `%USERPROFILE%\.wezterm_workspaces.json` 会记录标签、窗格和本机路径；当前恢复逻辑只会尝试使用第一个标签、第一个窗格的工作目录，不会重建完整分屏、标签、进程或比例。该文件可能包含隐私路径，不应提交。
 - WSL 新分屏为稳定起见固定从 `/home/lenovo` 启动，不继承当前 WSL 窗格目录。
-- `Ctrl+Shift+D` 只是记录工作区信息后关闭窗口，不等同于 tmux 的持久会话；只有独立 mux server 场景才应期待后台存活。
+- `Ctrl+Shift+D` 只是记录工作区信息后关闭窗口，不等同于 tmux 的持久会话；本仓库未配置独立 mux server，长任务持久化请使用 tmux 等专用工具。
 - `Ctrl+Shift+G` 只做一次 Git 分支查询并弹出通知，分支不会常驻状态栏。
-- 常用目录别名、WSL 发行版和 home 路径都是本机值；在其他机器部署前需检查 `.wezterm.lua` 中的 `WSL_DISTRO`、`/home/lenovo` 与 `projects` 表。
+- 常用目录别名、WSL 发行版和 home 路径都是本机值；当前别名已对齐本机的 `Obsidian`、`WezTerm` 和 `dotfiles`，在其他机器部署前仍需检查 `.wezterm.lua` 中的 `WSL_DISTRO`、`/home/lenovo` 与 `projects` 表。
 - 当前自定义标签标题使用了版本敏感的 pane API；若回退为默认标题，不影响终端主体功能，后续可单独修复并做 GUI 验收。
+- 关闭窗格和窗口均不弹确认框；误触会直接终止其中的前台任务。
 
 ## 部署
 

@@ -19,7 +19,7 @@ local config = wezterm.config_builder and wezterm.config_builder() or {}
 -- ── 工作区与布局管理 ──
 local WORKSPACE_FILE = wezterm.home_dir .. '/.wezterm_workspaces.json'
 
--- 记录当前工作区元数据；恢复阶段目前只使用首个标签、首个窗格的 cwd
+-- 记录当前工作区元数据；恢复阶段目前只尝试使用首个标签、首个窗格的 cwd
 local function save_workspace_layout()
   local workspace_name = mux.get_active_workspace()
   local all_windows = mux.all_windows()
@@ -634,16 +634,15 @@ config.keys = {
         -- 先解析静态别名，未匹配时直接使用输入值
         local projects = {
           ['obsidian'] = '/home/lenovo/project/Obsidian',
-          ['wezterm'] = '/mnt/c/Users/lenovo/.config/wezterm',
-          ['cursor'] = '/home/lenovo/project/cursor',
-          ['dotfiles'] = '/home/lenovo/dotfiles',
+          ['wezterm'] = '/mnt/e/WezTerm',
+          ['dotfiles'] = '/home/lenovo/project/dotfiles',
         }
         local target_dir = projects[line] or line
         
         -- 在当前窗格切换目录
         pane:send_text('cd "' .. target_dir .. '" && clear\n')
         
-        -- 保存当前工作区布局
+        -- 尝试记录跳转后的工作区信息；cwd 更新是异步的，可能仍记录跳转前目录
         save_workspace_layout()
       end
     end),
@@ -670,9 +669,9 @@ config.keys = {
   -- ═══════════════════════════════════════════════════════════
   -- 列出所有活动工作区（类似 tmux ls）
   { key = 'M', mods = 'CTRL|SHIFT', action = act.ShowLauncherArgs { flags = 'WORKSPACES' } },
-  -- 连接到已保存的会话域（恢复工作区）
+  -- 切换到已记录列表中的第一个工作区名称（不重建会话）
   { key = 'A', mods = 'CTRL|SHIFT', action = wezterm.action_callback(function(window, pane)
-    -- 显示可连接的工作区列表
+    -- 读取已记录的工作区列表
     local saved = get_saved_workspaces()
     if #saved == 0 then
       wezterm.log_info('没有保存的工作区')
@@ -758,7 +757,7 @@ config.mouse_bindings = {
 
 -- ── 多路复用 / SSH（可选）──
 -- 注意：当前 WezTerm 版本无 config.mux_enabled 字段；勿使用无效项，否则会整份配置报错。
--- 需要原生 mux 时：终端里运行 `wezterm start --multiplex`，再用 `wezterm connect <域名>`（见官方文档）。
+-- 本仓库未配置独立 mux server；需要持久会话时优先使用 tmux，或按所装版本文档另行配置 mux domain。
 config.ssh_domains = {
   -- {
   --   name = 'myserver',
