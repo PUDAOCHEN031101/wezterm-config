@@ -1,6 +1,6 @@
 -- WezTerm 配置 - Dracula 护眼 + ROS/长时开发向
--- 原则：深灰底（非纯黑）、ANSI 分层清晰（红/黄/绿易辨日志）、少花哨渐变；JetBrains Mono + 轻微透明
--- 核心：分屏 + 标签 + 工作区 + WSL + 右键菜单 + 布局保存恢复 + 快速跳转 + 多路复用
+-- 原则：深灰底（非纯黑）、ANSI 分层清晰（红/黄/绿易辨日志）、少花哨渐变；JetBrains Mono + 稳定优先
+-- 核心：分屏 + 标签 + 工作区 + WSL + 右键菜单 + 工作区入口记录 + 快速跳转
 --
 -- 若调试/编辑本文件时「错误弹窗叠很多层、不自动关」：多半是自动重载 + 配置语法错误。
 -- 已关闭自动重载；改完配置后按 Ctrl+Shift+R（已显式绑定 ReloadConfiguration）或重启 WezTerm。
@@ -19,7 +19,7 @@ local config = wezterm.config_builder and wezterm.config_builder() or {}
 -- ── 工作区与布局管理 ──
 local WORKSPACE_FILE = wezterm.home_dir .. '/.wezterm_workspaces.json'
 
--- 保存当前工作区布局
+-- 记录当前工作区元数据；恢复阶段目前只使用首个标签、首个窗格的 cwd
 local function save_workspace_layout()
   local workspace_name = mux.get_active_workspace()
   local all_windows = mux.all_windows()
@@ -62,7 +62,7 @@ local function save_workspace_layout()
   end
 end
 
--- 恢复工作区布局
+-- 读取工作区的首个 cwd；不会重建完整标签、分屏或进程
 local function restore_workspace_layout(workspace_name)
   local file = io.open(WORKSPACE_FILE, 'r')
   if not file then return false end
@@ -223,10 +223,14 @@ config.color_scheme = DEFAULT_SCHEME
 
 config.font = wezterm.font({ family = 'JetBrains Mono', harfbuzz_features = { 'calt=1', 'clig=1', 'liga=1' } })
 config.font_size = 14.0
-config.window_background_opacity = 0.93
-config.win32_system_backdrop = 'Acrylic'
-config.default_cursor_style = 'BlinkingBlock'
-config.cursor_thickness = 3
+config.front_end = 'Software'
+config.animation_fps = 1
+config.window_background_opacity = 1.0
+config.win32_system_backdrop = 'Disable'
+config.hide_mouse_cursor_when_typing = false
+config.force_reverse_video_cursor = false
+config.default_cursor_style = 'SteadyBar'
+config.cursor_thickness = 4
 -- 注意：text_min_contrast_ratio 仅在较新 WezTerm 中可用；旧版会整份配置报错，故不启用。
 -- 不显式设 visual_bell：避免旧版/类型差异导致 Config 报错弹窗；需要时再按文档用「表」配置（勿写字符串）
 -- 分屏：强反差 — 非活动窗格大幅压暗、去饱和（活动窗格保持配色原样）
@@ -424,7 +428,7 @@ local function refresh_git_branch(cwd_str, force)
   end
 end
 
--- ── 状态栏：Git / 路径 / WS / 电池 / 时间 + 按目录换配色 ──
+-- ── 状态栏：工作区 / 电池 / 时间 + 按目录换配色 ──
 wezterm.on('update-status', function(window, pane)
   local workspace_name = 'default'
   pcall(function()
@@ -622,12 +626,12 @@ config.keys = {
       pane
     )
   end) },
-  -- 快速跳转到常用项目目录（配合 zoxide）
+  -- 快速跳转到常用项目目录（静态别名或直接输入路径）
   { key = 'Z', mods = 'CTRL|SHIFT', action = act.PromptInputLine {
-    description = '输入项目名或路径（配合 zoxide）',
+    description = '输入项目别名或路径',
     action = wezterm.action_callback(function(window, pane, line)
       if line then
-        -- 尝试用 zoxide 解析路径
+        -- 先解析静态别名，未匹配时直接使用输入值
         local projects = {
           ['obsidian'] = '/home/lenovo/project/Obsidian',
           ['wezterm'] = '/mnt/c/Users/lenovo/.config/wezterm',
@@ -656,13 +660,13 @@ config.keys = {
       window:toast_notification('WezTerm', 'Git 分支已手动刷新：' .. (git_cache.branch or '-'), nil, 1200)
     end)
   end) },
-  -- 手动保存当前布局
+  -- 手动记录当前工作区元数据
   { key = 'S', mods = 'CTRL|SHIFT|ALT', action = wezterm.action_callback(function()
     save_workspace_layout()
-    wezterm.log_info('工作区布局已保存')
+    wezterm.log_info('工作区信息已记录')
   end) },
   -- ═══════════════════════════════════════════════════════════
-  -- 第四优先级：多路复用（Multiplexer）
+  -- 第四优先级：工作区式会话管理
   -- ═══════════════════════════════════════════════════════════
   -- 列出所有活动工作区（类似 tmux ls）
   { key = 'M', mods = 'CTRL|SHIFT', action = act.ShowLauncherArgs { flags = 'WORKSPACES' } },
@@ -677,13 +681,12 @@ config.keys = {
     -- 切换到第一个保存的工作区
     window:perform_action(act.SwitchToWorkspace { name = saved[1] }, pane)
   end) },
-  -- 断开当前窗口（后台保持运行，类似 tmux detach）
-  -- 注意：这会关闭窗口但保持工作区运行，可以用 Ctrl+Shift+A 恢复
+  -- 记录元数据后关闭当前窗口；普通 GUI 会话不承诺像 tmux 一样后台持久化
   { key = 'D', mods = 'CTRL|SHIFT', action = wezterm.action_callback(function(window, pane)
-    -- 先保存当前布局
+    -- 先记录当前工作区元数据
     save_workspace_layout()
-    wezterm.log_info('工作区已保存，可以安全关闭窗口')
-    -- 关闭窗口但不退出程序（工作区在后台保持）
+    wezterm.log_info('工作区信息已记录，正在关闭窗口')
+    -- 关闭当前窗口；是否仍有后台会话取决于 mux server 的运行方式
     window:perform_action(act.CloseCurrentWindow { confirm = false }, pane)
   end) },
   -- 新建独立会话窗口（不共享当前会话）
@@ -702,9 +705,9 @@ local function make_context_menu()
       { id = 'close_win', label = '关闭当前窗口' },
       { id = 'new_t', label = '新建标签  [Ctrl+Shift+T]' },
       { id = 'ws_switch', label = '切换或创建工作区…  [Ctrl+Shift+F9]' },
-      { id = 'ws_save', label = '保存当前布局  [Ctrl+Shift+Alt+S]' },
+      { id = 'ws_save', label = '记录当前工作区  [Ctrl+Shift+Alt+S]' },
       { id = 'ws_list', label = '列出所有工作区  [Ctrl+Shift+M]' },
-      { id = 'ws_detach', label = '保存布局并关闭本窗口  [Ctrl+Shift+D]' },
+      { id = 'ws_detach', label = '记录工作区并关闭本窗口  [Ctrl+Shift+D]' },
       { id = 'new_win', label = '新建独立窗口  [Ctrl+Shift+Alt+N]' },
       { id = 'cancel', label = '── 退出菜单（不执行任何操作）──' },
     },
